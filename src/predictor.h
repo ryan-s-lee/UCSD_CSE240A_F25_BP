@@ -70,6 +70,77 @@ void train_predictor(uint32_t pc, uint32_t target, uint32_t outcome, uint32_t co
 // Please add your code below, and DO NOT MODIFY ANY OF THE CODE ABOVE
 // 
 
+uint16_t readTb(uint8_t *table, int idx, unsigned int entryBits);
+void writeTb(uint8_t *table, int idx, uint16_t data, unsigned int entryBits);
+void steerPred(uint8_t *table, int idx, bool direction, unsigned int predBitWidth);
 
+void init_tournament();
+
+uint8_t tournament_predict(uint32_t pc);
+
+void train_tournament(uint32_t pc, uint8_t outcome);
+
+typedef struct tournamentPredictor_t {
+  int tLocalPcIndexBits = 10;
+  int tLocalHistoryEntries = 1 << tLocalPcIndexBits;
+  int tLocalHistoryBits = 10;
+  int tLocalBhtEntries = 1 << tLocalHistoryBits;
+  int tLocalBhtBits = 3;
+
+  int tGlobalHistoryBits = 12;
+  int tGlobalPredEntries = 1 << tGlobalHistoryBits;
+  int tGlobalPredBits = 2;
+
+  int tChoiceEntries = 1 << tGlobalHistoryBits;
+  int tChoicePredBits = 2;
+
+  uint8_t *localHistoryTable;
+  uint8_t *localPredTable;
+  uint8_t *globalPredTable;
+  uint8_t *choicePredTable;
+  uint16_t pathHistory;
+  bool lastLocalPred;
+  bool lastGlobalPred;
+
+  // read
+  inline uint16_t readLocalHistoryTb(uint32_t pc) {
+    return readTb(localHistoryTable, pc & ((1<<tLocalPcIndexBits)-1), tLocalHistoryBits);
+  }
+  inline uint16_t readLocalPredTb(uint32_t pattern) {
+    return readTb(localPredTable, pattern & ((1<<tLocalHistoryBits)-1), tLocalBhtBits);
+  }
+  inline uint16_t readGlobalPredTb() {
+    return readTb(globalPredTable, pathHistory & ((1<<tGlobalHistoryBits)-1), tGlobalPredBits);
+  }
+  inline uint16_t readChoicePredTb() {
+    return readTb(choicePredTable, pathHistory & ((1<<tGlobalHistoryBits)-1), tChoicePredBits);
+  }
+
+  // write
+  inline void writeLocalHistoryTb(uint32_t pc, uint16_t data) {
+    return writeTb(localHistoryTable, pc & ((1<<tLocalPcIndexBits)-1), data, tLocalHistoryBits);
+  }
+  inline void writeLocalPredTb(uint32_t pattern, uint16_t data) {
+    return writeTb(localPredTable, pattern & ((1<<tLocalHistoryBits)-1), data, tLocalBhtBits);
+  }
+  inline void writeGlobalPredTb(uint16_t data) {
+    return writeTb(globalPredTable, pathHistory & ((1<<tGlobalHistoryBits)-1), data, tGlobalPredBits);
+  }
+  inline void writeChoicePredTb(uint16_t data) {
+    return writeTb(choicePredTable, pathHistory & ((1<<tGlobalHistoryBits)-1), data, tChoicePredBits);
+  }
+
+  // steer (predictors only)
+  inline void steerLocal(uint32_t pattern, bool dir) {
+      // readLocalHistoryTb will mask extraneous pc bits for us
+      steerPred(localPredTable, pattern, dir, tLocalBhtBits);
+  }
+  inline void steerGlobal(bool dir) {
+      steerPred(globalPredTable, pathHistory & ((1<<tGlobalHistoryBits)-1), dir, tGlobalPredBits);
+  }
+  inline void steerChoice(bool dir) {
+      steerPred(choicePredTable, pathHistory & ((1<<tGlobalHistoryBits)-1), dir, tChoicePredBits);
+  }
+} tData;
 
 #endif
